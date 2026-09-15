@@ -1,0 +1,15 @@
+{
+  "name": "gemini-web-chatbot",
+  "version": "1.0.0",
+  "description": "Local web-based chatbot powered by Gemini 3.8 Flash & Gemini 3.7 Flash",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  }
+}
