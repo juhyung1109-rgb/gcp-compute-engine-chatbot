@@ -106,34 +106,123 @@ node server.js
 
 ---
 
-## ☁️ Google Cloud Compute Engine 배포 가이드
+## ☁️ Google Cloud Compute Engine 배포 현황 (Live)
 
-본 프로젝트는 GCP Compute Engine 인스턴스(Ubuntu/Debian)에 손쉽게 배포할 수 있습니다.
+Jupyter Notebook([compute_engine_example.ipynb](compute_engine_example.ipynb)) 분석 결과를 바탕으로 비용 효율이 가장 우수한 `us-central1-a` 리전에 Compute Engine VM을 생성하고 챗봇 서비스를 배포하였습니다.
 
-1. **Compute Engine VM 인스턴스 생성**:
-   - 방화벽에서 `HTTP(80)` 및 필요한 포트(`3000` 등) 허용 설정.
-2. **인스턴스 SSH 접속 후 환경 구성**:
-   ```bash
-   sudo apt update
-   sudo apt install -y nodejs npm git
-   ```
-3. **저장소 클론 및 패키지 설치**:
-   ```bash
-   git clone <REPOSITORY_URL>
-   cd gcp-compute-engine-chatbot
-   npm install
-   ```
-4. **환경변수 설정 및 백그라운드 데몬(PM2) 실행**:
-   ```bash
-   export GEMINI_API_KEY="<YOUR_GEMINI_API_KEY>"
-   sudo npm install -g pm2
-   pm2 start server.js --name "gemini-chatbot"
-   pm2 startup
-   pm2 save
-   ```
-5. **VM 인스턴스의 외부 IP(`http://<EXTERNAL_IP>:3000`)로 접속하여 챗봇 이용.**
+### 1. 실시간 운영 인스턴스 정보
+| 항목 | 사양 / 설정값 |
+| :--- | :--- |
+| **인스턴스 이름** | `gemini-chatbot-vm` |
+| **리전 / 영역** | `us-central1-a` (월 최저 $25.46 티어) |
+| **머신 유형** | `e2-medium` (vCPU 2개, 4GB RAM) |
+| **부팅 디스크** | 10GB pd-balanced (Debian 12 Bookworm) |
+| **외부 공인 IP** | **`104.197.160.233`** |
+| **HTTPS 보안 접속 주소** | 🔒 **`https://104.197.160.233.sslip.io`** (공인 CA 인증서 완벽 적용, '안전하지 않음' 경고 없음) |
+| **SSL 포트 3000 접속** | 🔒 **`https://104.197.160.233.sslip.io:3000`** |
+| **HTTP 자동 리다이렉트** | `http://104.197.160.233` 및 `http://104.197.160.233:3000` 접속 시 HTTPS로 301 자동 전환 |
+| **웹 서버 / 프록시** | Nginx (Let's Encrypt SSL 종료, SSE 실시간 스트리밍 버퍼링 해제 최적화) |
+| **백엔드 데몬** | Systemd 서비스 (`chatbot.service`, 내부 3001번 포트 격리 구동) |
+| **방화벽 규칙** | `allow-chatbot-service` (TCP 3000, 80, 443 인바운드 허용) |
+
+### 2. HTTPS (SSL/TLS) 보안 연결 요약
+- **SSL 인증서**: 글로벌 공인 인증기관 **Let's Encrypt**에서 `104.197.160.233.sslip.io` 도메인에 대한 공식 인증서를 자동 발급받아 적용하였습니다.
+- **브라우저 호환성**: Chrome, Edge, Safari 등 모든 모던 웹 브라우저에서 '안전하지 않음' 경고 없이 안전한 자물쇠(🔒) 아이콘과 함께 작동하며, 브라우저 마이크 음성 인식(STT) 등의 Web API도 완벽하게 지원됩니다.
+- **자동 갱신**: Certbot systemd 타이머(`certbot.timer`)가 백그라운드에서 만료 전 자동 갱신을 수행합니다.
+
+### 3. GCP Secret Manager 안전 연동
+- **Secret 리소스**: `projects/94943462326/secrets/GEMINI_API_KEY`
+- **IAM 권한**: Compute Engine 기본 서비스 계정(`94943462326-compute@developer.gserviceaccount.com`)에 `roles/secretmanager.secretAccessor` 역할을 부여하여, 인스턴스 내부에서 안전하게 API 키를 동적으로 취득합니다.
+- **주입 방식**: VM 부팅 시 `startup-script.sh`에서 gcloud CLI를 통해 Secret Manager의 최신 비밀값을 획득하여 서비스 구동 환경으로 자동 주입합니다.
+
+### 4. 배포 자동화 도구 및 상세 로그
+- **`deploy_to_compute_engine.py`**: 코드 자동 패키징(Base64 tarball), startup-script 생성, VM 프로비저닝, 헬스체크 및 실시간 스트리밍 테스트를 수행하는 원클릭 배포 스크립트.
+- **`setup_https.sh`**: Nginx 리버스 프록시, Let's Encrypt SSL 연동, 포트 443/3000 HTTPS 및 자동 리다이렉트를 구성하는 스크립트.
+- **`deployment.log`**: 방화벽 확인, IAM 권한 부여, VM 생성, IP 할당, 헬스체크 응답, HTTPS SSL 인증서 발급 등 배포 전 과정의 상세 실행 로그가 타임스탬프와 함께 완벽히 기록된 파일.
+- **`startup-script.sh`**: 인스턴스 최초 부팅 시 Node.js 20 설치, 코드 압축 해제, Secret Manager 키 다운로드, systemd 데몬 등록을 수행하는 초기화 스크립트.
+
+### 5. Compute Engine 인스턴스 관리 안내 (비용 절약)
+사용하지 않을 때는 인스턴스를 중지하여 불필요한 컴퓨팅 비용 청구를 방지할 수 있습니다:
+```bash
+# 인스턴스 중지 (컴퓨트 비용 발생 중지)
+gcloud compute instances stop gemini-chatbot-vm --zone=us-central1-a --project=iceu-songpa03
+
+# 인스턴스 재시작
+gcloud compute instances start gemini-chatbot-vm --zone=us-central1-a --project=iceu-songpa03
+
+# 인스턴스 완전 삭제
+gcloud compute instances delete gemini-chatbot-vm --zone=us-central1-a --project=iceu-songpa03 --quiet
+```
+
+---
+
+## 🔒 HTTP vs HTTPS 비교 및 프로토콜 전환 기술 분석
+
+초기 배포 단계에서는 Compute Engine 공인 IP 기반의 일반 **HTTP (포트 80/3000)** 로 서비스를 시작하였으나, 브라우저 보안 경고 해소 및 안전한 통신 환경을 구축하기 위해 **HTTPS (포트 443/3000 SSL)** 로 전환하였습니다.
+
+### 1. HTTP와 HTTPS의 2가지 프로토콜 핵심 차이점
+
+| 비교 항목 | HTTP (HyperText Transfer Protocol) | HTTPS (HTTP Secure, SSL/TLS) |
+| :--- | :--- | :--- |
+| **보안 / 암호화** | **평문(Plaintext) 전송**<br>- 패킷 스니핑, 중간자 공격(MITM)에 취약<br>- 전송 데이터(대화 내용, 토큰 등) 탈취 위험 | **SSL/TLS 기반 종단 간 전송 암호화**<br>- 공개키/대칭키 암호화로 데이터 기밀성 보장<br>- 데이터 무결성 검증으로 위변조 방지 |
+| **신뢰도 및 브라우저 표시** | ❌ 브라우저 주소창에 **`▲ 안전하지 않음`** 경고 문구 상시 노출 | 🔒 브라우저 주소창에 **안전한 연결 자물쇠 아이콘** 표시, 사용자 신뢰 확보 |
+| **기본 포트** | TCP **`80`** (또는 사용자 지정 `3000`) | TCP **`443`** (암호화 핸드셰이크 후 통신) |
+| **웹 표준 보안 API 지원 (Secure Context)** | ❌ **강제 차단**<br>- 브라우저 마이크 음성 인식(Web Speech API)<br>- 클립보드 복사(Clipboard API), 푸시 알림 등 사용 불가 | ✅ **완벽 지원**<br>- 보안 컨텍스트(Secure Context) 조건을 충족하여 마이크 음성 입력(STT) 및 모든 Web API 정상 구동 |
+| **검색 엔진 최적화 (SEO)** | 검색 엔진 랭킹 산정 시 불이익 | 구글 등 주요 검색 엔진의 가산점 및 신뢰성 부여 |
+
+---
+
+### 2. HTTPS 프로토콜 전환을 위해 도입된 핵심 기술 스택
+
+Compute Engine 환경에서 추가 비용 없이 신뢰할 수 있는 HTTPS 환경을 구성하기 위해 다음과 같은 기술을 통합 적용하였습니다:
+
+```
+[클라이언트 웹 브라우저]
+       │
+       ▼ (HTTPS : 443 / : 3000) - Let's Encrypt 공인 SSL 암호화
+┌─────────────────────────────────────────────────────────────┐
+│ Google Cloud Compute Engine (gemini-chatbot-vm)             │
+│                                                             │
+│  [GCP 방화벽] ─────────▶ TCP 80, 443, 3000 포트 허용        │
+│                                                             │
+│  [Nginx 리버스 프록시]                                      │
+│    ├─ 포트 80 (HTTP) ──────▶ HTTPS로 301 자동 리다이렉트     │
+│    ├─ 포트 3000 (HTTP 평문) ─▶ error_page 497 -> HTTPS 전환  │
+│    └─ 포트 443 / 3000 (SSL) ─▶ SSL Termination (복호화)     │
+│                                │                            │
+│                                ▼ (내부 프록시: 무버퍼링 SSE)│
+│  [Node.js Express 백엔드] (127.0.0.1:3001)                  │
+│    └─ Secret Manager 연동: GEMINI_API_KEY 취득               │
+│    └─ Google Gemini 3.8 & 3.7 Flash 실시간 SSE 스트리밍     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### ① Let's Encrypt (공인 인증기관, CA)
+- **역할**: 전 세계 모든 브라우저 및 운영체제에 루트 인증서가 탑재된 글로벌 공인 인증기관(CA).
+- **효과**: 자체 서명(Self-signed) 인증서 사용 시 발생하는 빨간색 "연결이 비공개로 설정되어 있지 않습니다" 경고 화면을 원천 배제하고, 신뢰할 수 있는 공식 인증서(`fullchain.pem`, `privkey.pem`)를 무료로 발급받아 적용.
+
+#### ② sslip.io (Wildcard IP DNS 매핑 기술)
+- **역할**: IP 주소(`104.197.160.233`)를 별도의 유료 도메인 구매나 네임서버 등록 없이 유효한 FQDN(`104.197.160.233.sslip.io`)으로 자동 변환해 주는 공용 DNS 매핑 서비스.
+- **도입 이유**: Let's Encrypt는 보안 정책상 원시 공인 IP 주소에 직접 무료 인증서를 발급하지 않으므로, `sslip.io`를 통해 정식 도메인 자격을 부여하여 공인 SSL 발급 요건을 충족.
+
+#### ③ Certbot (ACME 프로토콜 자동화 클라이언트)
+- **역할**: Let's Encrypt의 ACME(Automated Certificate Management Environment) 프로토콜을 수행하는 자동화 에이전트.
+- **기능**: 도메인 소유권 검증(HTTP-01 Challenge)을 거쳐 인증서를 자동 획득하고, Linux `certbot.timer` 데몬을 통해 90일 주기의 만료일 전에 백그라운드 무중단 자동 갱신 수행.
+
+#### ④ Nginx (고성능 리버스 프록시 & SSL 오프로딩)
+- **SSL Termination**: TLS 암호화/복호화 연산을 Nginx 웹 서버 레벨에서 고속 처리하여 백엔드(Node.js) 프로세스의 부하를 제거.
+- **포트 통합 및 자동 리다이렉트**: 
+  - `포트 80` 및 `포트 3000`에 평문 HTTP로 접근하더라도 `301 Moved Permanently` (및 Nginx `error_page 497`)를 통해 안전한 HTTPS 주소로 강제 전환.
+- **SSE(Server-Sent Events) 실시간 스트리밍 최적화**: 
+  - `proxy_buffering off`, `proxy_cache off`, `chunked_transfer_encoding on`을 적용하여 Nginx가 Gemini AI의 스트리밍 토큰을 버퍼에 모으지 않고 사용자 화면으로 즉시 흘려보내도록 설정.
+
+#### ⑤ Google Cloud VPC 방화벽 (Firewall Rule) & 태그
+- **역할**: GCP 네트워크 가상 사설망(VPC) 차원에서 인스턴스로 유입되는 인바운드 트래픽 제어.
+- **구성**: 방화벽 규칙 `allow-chatbot-service`에 `tcp:443` 포트를 허용 규칙으로 추가하고, 인스턴스에 `https-server` 태그를 부여하여 전 세계 사용자로부터의 암호화 웹 트래픽 수신을 완벽 보장.
+
 
 ---
 
 ## 📌 작업 규칙 (Rule)
-- **README 최신화 원칙**: 본 저장소 내에서 기능 추가, UI 수정, 패키지 변경 등 모든 작업이 완료된 후에는 반드시 `README.md` 파일을 최신 작업 내역에 맞춰 업데이트합니다.
+- **README 최신화 원칙**: 본 저장소 내에서 기능 추가, UI 수정, 패키지 변경, 클라우드 배포 등 모든 작업이 완료된 후에는 반드시 `README.md` 파일을 최신 작업 내역에 맞춰 업데이트합니다.
+
