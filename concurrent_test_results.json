@@ -1,0 +1,100 @@
+{
+  "timestamp": "2026-09-16T14:43:17.593138",
+  "overall_elapsed_sec": 64.91,
+  "results": {
+    "session_1": [
+      {
+        "session": "Session 1",
+        "question": "대한민국의 수도는 어디인가요?",
+        "http_status": 200,
+        "elapsed_sec": 2.78,
+        "response_preview": "대한민국의 수도는 **서울**입니다.",
+        "response_length": 20,
+        "error": null
+      },
+      {
+        "session": "Session 1",
+        "question": "그 도시의 대표적인 명소 3가지를 추천해줘.",
+        "http_status": 200,
+        "elapsed_sec": 17.69,
+        "response_preview": "네, 서울의 대표적인 명소 세 곳을 추천해 드릴게요! 다양한 매력을 느낄 수 있는 곳들입니다.  1.  **경복궁 (Gyeongbokgung P...",
+        "response_length": 978,
+        "error": null
+      },
+      {
+        "session": "Session 1",
+        "question": "그 중 첫 번째 명소의 역사적 배경을 2문장으로 요약해줘.",
+        "http_status": 200,
+        "elapsed_sec": 1.92,
+        "response_preview": "첫 번째 명소인 경복궁은 **조선 왕조를 건국한 태조 이성계가 1395년에 창건한 법궁으로, 조선 왕조의 중심이자 가장 웅장한 궁궐이었습니다.*...",
+        "response_length": 171,
+        "error": null
+      },
+      {
+        "session": "Session 1",
+        "question": "거기서 맛볼 수 있는 대표 음식 2가지를 알려줘.",
+        "http_status": 200,
+        "elapsed_sec": 8.77,
+        "response_preview": "경복궁 주변에서 맛볼 수 있는 대표 음식 두 가지를 추천해 드릴게요. 궁궐이라는 역사적 배경과 어울리는 음식 위주로 선정했습니다.  1.  **...",
+        "response_length": 716,
+        "error": null
+      },
+      {
+        "session": "Session 1",
+        "question": "외국인 친구에게 추천할 당일치기 코스를 간략히 정리해줘.",
+        "http_status": 200,
+        "elapsed_sec": 9.07,
+        "response_preview": "외국인 친구를 위한 서울 당일치기 코스를 간략하게 정리해 드릴게요! 서울의 역사, 문화, 그리고 현대적인 매력을 모두 경험할 수 있는 알찬 코스...",
+        "response_length": 1007,
+        "error": null
+      }
+    ],
+    "session_2": [
+      {
+        "session": "Session 2",
+        "question": "Google Cloud Run의 핵심 장점 3가지를 알려줘.",
+        "http_status": 200,
+        "elapsed_sec": 11.67,
+        "response_preview": "Google Cloud Run의 핵심 장점 3가지는 다음과 같습니다.  1.  **컨테이너 기반의 유연한 서버리스 환경 (Container-ba...",
+        "response_length": 1050,
+        "error": null
+      },
+      {
+        "session": "Session 2",
+        "question": "Scale-to-Zero가 비용 절감에 어떻게 기여하는지 설명해줘.",
+        "http_status": 200,
+        "elapsed_sec": 18.18,
+        "response_preview": "Scale-to-Zero는 서버리스 컴퓨팅 환경, 특히 Google Cloud Run과 같은 서비스의 핵심적인 비용 절감 메커니즘입니다. 이것이...",
+        "response_length": 1424,
+        "error": null
+      },
+      {
+        "session": "Session 2",
+        "question": "Cloud Run과 전통적인 가상머신(VM)의 차이점을 한 문장으로 정리해줘.",
+        "http_status": 200,
+        "elapsed_sec": 6.32,
+        "response_preview": "Cloud Run은 **인프라 관리 부담 없이 코드 실행에만 집중할 수 있는 완전 관리형 서버리스 컨테이너 플랫폼**이며, 전통적인 가상머신(V...",
+        "response_length": 127,
+        "error": null
+      },
+      {
+        "session": "Session 2",
+        "question": "Application Default Credentials(ADC)가 API Key보다 안전한 이유를 알려줘.",
+        "http_status": 200,
+        "elapsed_sec": 14.13,
+        "response_preview": "Application Default Credentials (ADC)가 API Key보다 훨씬 안전한 주된 이유는 **신원 기반의 접근 제어(Id...",
+        "response_length": 2001,
+        "error": null
+      },
+      {
+        "session": "Session 2",
+        "question": "Gemini 모델과 대화할 때 실시간 스트리밍(SSE)을 쓰는 이유는 뭐야?",
+        "http_status": 200,
+        "elapsed_sec": 12.1,
+        "response_preview": "Gemini 모델과 같은 대규모 언어 모델(LLM)과 대화할 때 실시간 스트리밍(SSE, Server-Sent Events)을 사용하는 주된 이...",
+        "response_length": 1373,
+        "error": null
+      }
+    ]
+  }
+}

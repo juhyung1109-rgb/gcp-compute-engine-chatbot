@@ -1,7 +1,7 @@
-# GCP Compute Engine & Local Web Chatbot (Gemini 3.8 & 3.7 Flash)
+# Google Cloud Gemini Web Chatbot (Compute Engine & Cloud Run)
 
-Google Cloud의 Compute Engine 환경 및 로컬 PC 웹 브라우저에서 실행 가능한 **Gemini 3.8 Flash** 및 **Gemini 3.7 Flash** 기반 웹 챗봇 서비스입니다.  
-공식 Google Gemini 웹 UI 디자인(헤더 문구, 캡슐형 입력창, 도구 팝업 메뉴, 모델 전환 버튼, 단축키, 음성 인식 등)을 충실하게 재현하고 실시간 스트리밍 대화를 지원합니다.
+Google Cloud의 **Compute Engine (가상 머신 IaaS)** 및 **Cloud Run (완전 관리형 서버리스 컨테이너)** 환경 모두에서 유연하게 실행 가능한 **Gemini 3.8 Flash** 및 **Gemini 3.7 Flash** 기반 엔터프라이즈급 웹 챗봇 서비스입니다.  
+공식 Google Gemini 웹 UI 디자인(헤더 문구, 캡슐형 입력창, 도구 팝업 메뉴, 모델 전환 버튼, 단축키, 음성 인식 등)을 충실하게 재현하고 실시간 스트리밍 대화 및 Google Search Grounding을 지원합니다.
 
 ---
 
@@ -45,7 +45,7 @@ Google Cloud의 Compute Engine 환경 및 로컬 PC 웹 브라우저에서 실�
 - **대화 세션 히스토리**: 브라우저 `localStorage`를 통해 이전 대화 내용이 안전하게 유지되며, 사이드바에서 "새 대화" 생성 및 과거 대화 열람 가능.
 
 ### 5. 보안 및 환경변수 연동
-- API 키를 하드코딩하지 않고, 시스템 환경변수 `GEMINI_API_KEY` (또는 `.env`)를 백엔드 서버에서 자동 로드하여 안전하게 관리합니다.
+- API 키를 하드코딩하지 않고, GCP Secret Manager 또는 시스템 환경변수 `GEMINI_API_KEY`를 백엔드 서버에서 자동 로드하여 안전하게 관리합니다.
 
 ---
 
@@ -53,14 +53,44 @@ Google Cloud의 Compute Engine 환경 및 로컬 PC 웹 브라우저에서 실�
 
 ```
 gcp-compute-engine-chatbot/
-├── public/                     # 정적 웹 프론트엔드 리소스
-│   ├── index.html              # Gemini UI 레이아웃 및 팝업 마크업
-│   ├── style.css               # Google Gemini 스타일 시트 (글래스모피즘, 캡슐형 바 등)
-│   └── app.js                  # SSE 파서, 모델 스위칭, STT/TTS, 파일 업로드 등
-├── server.js                   # Node.js Express 백엔드 (SSE 스트리밍 & Gemini API 연동)
-├── package.json                # 프로젝트 메타데이터 및 의존성
-├── package-lock.json           # 의존성 락파일
-└── README.md                   # 프로젝트 설명 및 실행 가이드 (항시 최신화)
+├── compute_engine/                  # Google Cloud Compute Engine 배포 및 챗봇 애플리케이션 모듈
+│   ├── public/                      # 정적 웹 프론트엔드 리소스 (Gemini UI)
+│   │   ├── index.html               # Gemini UI 레이아웃 및 팝업 마크업
+│   │   ├── style.css                # Google Gemini 스타일 시트 (글래스모피즘, 캡슐형 바)
+│   │   └── app.js                   # SSE 스트리밍, 모델 스위칭, Web Speech API STT/TTS
+│   ├── server.js                    # Node.js Express 백엔드 (SSE 스트리밍 & Gemini API 연동)
+│   ├── package.json                 # 프로젝트 메타데이터 및 의존성 설정
+│   ├── package-lock.json            # 의존성 락파일
+│   ├── deploy_to_compute_engine.py  # Compute Engine 자동화 원클릭 배포 스크립트 (경로 독립적 실행)
+│   ├── startup-script.sh            # VM 부팅 시 Node.js 설치 및 systemd 데몬 자동 등록 스크립트
+│   ├── setup_https.sh               # Nginx 리버스 프록시 및 Let's Encrypt HTTPS 설정 스크립트
+│   ├── compute_engine_example.ipynb # GCP VM 생성 및 Ops Agent 설정 주피터 노트북
+│   ├── deployment.log               # 배포 및 HTTPS 검증 로그
+│   └── README.md                    # Compute Engine 모듈 상세 안내
+│
+├── cloud_run/                       # Google Cloud Run 서버리스 컨테이너 배포 모듈 (API Key/Secret Manager)
+│   ├── public/                      # 정적 웹 프론트엔드 리소스 (HTML/CSS/JS)
+│   ├── server.js                    # Cloud Run 최적화 Node.js 백엔드 (PORT 8080, 0.0.0.0 바인딩)
+│   ├── Dockerfile                   # node:20-slim 경량 컨테이너 이미지 정의
+│   ├── .dockerignore                # 빌드 컨텍스트 최적화 제외 설정
+│   ├── package.json                 # 의존성 설정
+│   ├── package-lock.json            # 의존성 락파일
+│   ├── deploy_to_cloud_run.py       # Cloud Run 자동 소스 빌드 & 배포 파이썬 스크립트
+│   ├── deploy.sh                    # Linux / Cloud Shell용 배포 쉘 스크립트
+│   └── README.md                    # Cloud Run 모듈 상세 안내
+│
+├── cloud_run2/                      # [NEW] Google Cloud Run ADC(Application Default Credentials) 모듈
+│   ├── public/                      # 정적 웹 프론트엔드 리소스 (Gemini UI)
+│   ├── server.js                    # 완전 키리스 ADC 토큰 기반 Vertex AI 스트리밍 백엔드
+│   ├── package.json                 # google-auth-library 포함 의존성 설정
+│   ├── Dockerfile                   # Cloud Run ADC 최적화 컨테이너 이미지 정의
+│   ├── .dockerignore                # 빌드 컨텍스트 제외 설정
+│   ├── deploy_to_cloud_run.py       # ADC 모드 키리스 자동 배포 파이썬 스크립트
+│   ├── deploy.sh                    # Linux / Cloud Shell용 배포 쉘 스크립트
+│   └── README.md                    # ADC 모듈 상세 안내 문서
+│
+├── .gitignore                       # Git 추적 제외 설정
+└── README.md                        # 전체 프로젝트 종합 안내 (항시 최신화)
 ```
 
 ---
@@ -69,66 +99,153 @@ gcp-compute-engine-chatbot/
 
 ### 1. 환경 요구사항
 - **Node.js**: v18.0.0 이상 권장 (현재 시스템: Node.js v24)
-- **Gemini API 키**: Google AI Studio에서 발급받은 API 키
+- **Python**: 3.9 이상 (GCP 배포 자동화 스크립트용)
+- **Docker**: (선택 사항) 로컬 컨테이너 이미지 빌드/테스트 시 필요
+- **인증**:
+  - `compute_engine/` 및 `cloud_run/`: Gemini API 키 (Secret Manager 또는 `.env`)
+  - `cloud_run2/`: **Google Cloud ADC (키리스 인증: `gcloud auth application-default login`)**
 
-### 2. API 키 환경변수 설정
-운영체제 환경변수에 `GEMINI_API_KEY`를 설정하거나 프로젝트 루트에 `.env` 파일을 생성합니다.
+### 2. 로컬 서버 실행
 
-**Windows PowerShell:**
-```powershell
-$env:GEMINI_API_KEY="AIzaSy..."
-```
-
-**Linux / macOS / Compute Engine:**
+#### Option A. Cloud Run 2 (ADC 모드 - Google 공식 권장 Keyless)
 ```bash
-export GEMINI_API_KEY="AIzaSy..."
-```
+# 1회 ADC 로그인
+gcloud auth application-default login
 
-**또는 `.env` 파일 생성:**
-```env
-GEMINI_API_KEY=AIzaSy...
-PORT=3000
-```
-
-### 3. 패키지 설치
-```bash
+# 서버 실행
+cd cloud_run2
 npm install
-```
-
-### 4. 로컬 서버 실행
-```bash
 npm start
-# 또는
-node server.js
+```
+브라우저에서 **`http://localhost:8080`** 접속 (API 키 입력 불필요!)
+
+#### Option B. Cloud Run (API Key / Secret Manager 모드)
+```bash
+cd cloud_run
+npm install
+npm start
+```
+브라우저에서 **`http://localhost:8080`** 접속 (`.env`의 `GEMINI_API_KEY` 사용)
+
+#### Option C. Compute Engine 모듈 실행
+```bash
+cd compute_engine
+npm install
+npm start
+```
+브라우저에서 **`http://localhost:3000`** 접속
+
+---
+
+## ☁️ Google Cloud Run 원클릭 서버리스 배포 (추천)
+
+Google Cloud Run은 완전 관리형 서버리스 컨테이너 플랫폼으로, 인프라 관리 없이 컨테이너를 배포할 수 있으며 **무료 자동 HTTPS 도메인**과 **유휴 시 0원(Scale to Zero)** 자동 스케일링을 제공합니다.
+
+### 🌐 배포된 라이브 서비스 접속 (Live)
+
+| 리전 | 서비스 URL | 인증 방식 | 배포 상태 | 특징 |
+| :--- | :--- | :--- | :---: | :--- |
+| **🇰🇷 서울 리전 (`asia-northeast3`)** ⭐ | 🔒 **[`https://gemini-chatbot-adc-94943462326.asia-northeast3.run.app`](https://gemini-chatbot-adc-94943462326.asia-northeast3.run.app)** | **ADC (Keyless, 권장)** | ✅ 정상 가동 | **국내 최저 지연시간 & 100% 완전 키리스** |
+| **🇺🇸 미국 리전 (`us-central1`)** | 🔒 **[`https://gemini-chatbot-run-94943462326.us-central1.run.app`](https://gemini-chatbot-run-94943462326.us-central1.run.app)** | API Key (Secret Manager) | ✅ 정상 가동 | 글로벌 표준 리전 |
+| **🇺🇸 미국 리전 (`us-central1`)** | 🔒 **[`https://gemini-chatbot-adc-94943462326.us-central1.run.app`](https://gemini-chatbot-adc-94943462326.us-central1.run.app)** | **ADC (Keyless)** | ✅ 정상 가동 | ADC 미국 리전 엔드포인트 |
+
+### gcloud CLI로 cloud_run2 (ADC 모드)를 서울 리전에 배포하는 명령어
+```bash
+gcloud run deploy gemini-chatbot-adc \
+  --image=us-central1-docker.pkg.dev/iceu-songpa03/chatbot-repo/gemini-chatbot-adc:v2 \
+  --project=iceu-songpa03 \
+  --region=asia-northeast3 \
+  --platform=managed \
+  --allow-unauthenticated \
+  --service-account=94943462326-compute@developer.gserviceaccount.com \
+  --set-env-vars="VERTEX_LOCATION=us-central1" \
+  --port=8080 \
+  --timeout=300s \
+  --min-instances=0 \
+  --max-instances=10 \
+  --memory=512Mi \
+  --cpu=1
 ```
 
-실행 후 웹 브라우저에서 **`http://localhost:3000`** 으로 접속합니다.
+### 배포 실행 방법
+```bash
+# cloud_run 폴더에서 실행
+cd cloud_run
+python deploy_to_cloud_run.py
+
+# 또는 프로젝트 루트에서 직접 실행
+python cloud_run/deploy_to_cloud_run.py
+```
+
+### 단계별 빌드 및 배포 워크플로우
+1. **Artifact Registry 저장소 생성**: `chatbot-repo` Docker 저장소 생성
+2. **컨테이너 이미지 빌드**: `gcloud builds submit --tag us-central1-docker.pkg.dev/iceu-songpa03/chatbot-repo/gemini-chatbot:v1 cloud_run`
+3. **Cloud Run 서비스 배포**: `gcloud run deploy gemini-chatbot-run --image=us-central1-docker.pkg.dev/iceu-songpa03/chatbot-repo/gemini-chatbot:v1 ...`
+4. **Secret Manager 자동 바인딩**: `projects/94943462326/secrets/GEMINI_API_KEY` 환경변수 주입
+5. **라이브 헬스체크 및 실시간 SSE 스트리밍 E2E 검증 완료**
+
+---
+
+## 📊 GCP Compute Engine vs Cloud Run 비교
+
+| 비교 항목 | Compute Engine (`compute_engine/`) | Cloud Run (`cloud_run/`) |
+| :--- | :--- | :--- |
+| **인프라 아키텍처** | 가상 머신 IaaS (Debian VM) | **완전 관리형 서버리스 컨테이너 (CaaS)** |
+| **서버 관리 부담** | OS 패치, 패키지 설치, Nginx 설정 필요 | **서버 관리 제로 (Google 완전 관리)** |
+| **HTTPS 구성** | Nginx 리버스 프록시 + Let's Encrypt 설정 | **Google 관리형 SSL 자동 발급 (영구 무료)** |
+| **비용 모델** | VM 실행 시간 동안 고정 비용 발생 (월 ~$25) | **요청 시에만 과금 (Scale-to-Zero, 유휴 시 0원)** |
+| **스케일링** | 수동 확장 또는 인스턴스 그룹 구성 필요 | **0개부터 수백 개까지 초단위 자동 오토스케일링** |
+| **적합한 용도** | OS 수준 제어가 필요한 장기 실행 작업 | **웹 서비스, API, 챗봇, 마이크로서비스** |
+
+---
+
+## ☁️ Google Cloud Compute Engine 원클릭 배포
+
+`deploy_to_compute_engine.py`는 스크립트 위치(`BASE_DIR`) 기준 절대 경로를 처리하도록 고도화되어 있어, 루트 디렉토리나 `compute_engine/` 서브폴더 어느 위치에서 실행해도 소스코드 패키징과 VM 배포가 완벽하게 동작합니다.
+
+```bash
+# 1. compute_engine 폴더 내에서 실행 시
+cd compute_engine
+python deploy_to_compute_engine.py
+
+# 2. 또는 프로젝트 루트에서 직접 실행 시
+python compute_engine/deploy_to_compute_engine.py
+```
+
+배포 스크립트는 다음 과정을 자동으로 수행합니다:
+1. `gcloud` 프로젝트 및 인증 설정 검증 (`iceu-songpa03`)
+2. Secret Manager `GEMINI_API_KEY` 권한 확인 및 Compute Engine 기본 서비스 계정에 IAM 바인딩
+3. 인바운드 방화벽 규칙 확인 (`allow-chatbot-service`, tcp:3000, tcp:80)
+4. `server.js`, `public/`, `package.json` 소스 패키징 (Base64 인코딩 tarball)
+5. `startup-script.sh` 동적 생성 및 Compute Engine VM 인스턴스(`gemini-chatbot-vm`, e2-medium) 프로비저닝
+6. 외부 공인 IP 할당 및 웹 서비스 헬스체크 (`/api/config` 폴링)
 
 ---
 
 ## ☁️ Google Cloud Compute Engine 배포 현황 (Live)
 
-Jupyter Notebook([compute_engine_example.ipynb](compute_engine_example.ipynb)) 분석 결과를 바탕으로 비용 효율이 가장 우수한 `us-central1-a` 리전에 Compute Engine VM을 생성하고 챗봇 서비스를 배포하였습니다.
+Jupyter Notebook([compute_engine_example.ipynb](compute_engine/compute_engine_example.ipynb)) 분석 결과를 바탕으로 비용 효율이 가장 우수한 `us-central1-a` 리전에 Compute Engine VM을 생성하고 챗봇 서비스를 배포하였습니다.
 
-### 1. 실시간 운영 인스턴스 정보
+### 1. 배포 인스턴스 구성 정보 (검증 완료 및 자원 정리)
+> [!NOTE]
+> 본 인스턴스는 배포, HTTPS 보안 전환 및 E2E 실시간 스트리밍 검증을 완벽하게 마친 후, 불필요한 과금을 방지하기 위해 **모든 인스턴스 및 디스크 자원이 안전하게 삭제(Torn Down)** 되었습니다. 재배포가 필요한 경우 `cd compute_engine && python deploy_to_compute_engine.py` 명령으로 언제든 1분 내에 동일 환경으로 재기동할 수 있습니다.
+
 | 항목 | 사양 / 설정값 |
 | :--- | :--- |
-| **인스턴스 이름** | `gemini-chatbot-vm` |
+| **인스턴스 이름** | `gemini-chatbot-vm` (검증 후 삭제 완료) |
 | **리전 / 영역** | `us-central1-a` (월 최저 $25.46 티어) |
 | **머신 유형** | `e2-medium` (vCPU 2개, 4GB RAM) |
-| **부팅 디스크** | 10GB pd-balanced (Debian 12 Bookworm) |
-| **외부 공인 IP** | **`104.197.160.233`** |
-| **HTTPS 보안 접속 주소** | 🔒 **`https://104.197.160.233.sslip.io`** (공인 CA 인증서 완벽 적용, '안전하지 않음' 경고 없음) |
-| **SSL 포트 3000 접속** | 🔒 **`https://104.197.160.233.sslip.io:3000`** |
-| **HTTP 자동 리다이렉트** | `http://104.197.160.233` 및 `http://104.197.160.233:3000` 접속 시 HTTPS로 301 자동 전환 |
+| **부팅 디스크** | 10GB pd-balanced (Debian 12 Bookworm, 삭제 완료) |
+| **기존 공인 IP** | `104.197.160.233` (반납 완료) |
+| **기존 HTTPS 주소** | 🔒 `https://104.197.160.233.sslip.io` (검증 성공) |
 | **웹 서버 / 프록시** | Nginx (Let's Encrypt SSL 종료, SSE 실시간 스트리밍 버퍼링 해제 최적화) |
 | **백엔드 데몬** | Systemd 서비스 (`chatbot.service`, 내부 3001번 포트 격리 구동) |
-| **방화벽 규칙** | `allow-chatbot-service` (TCP 3000, 80, 443 인바운드 허용) |
+| **방화벽 규칙** | `allow-chatbot-service` (자원 정리 시 삭제 완료) |
 
 ### 2. HTTPS (SSL/TLS) 보안 연결 요약
 - **SSL 인증서**: 글로벌 공인 인증기관 **Let's Encrypt**에서 `104.197.160.233.sslip.io` 도메인에 대한 공식 인증서를 자동 발급받아 적용하였습니다.
-- **브라우저 호환성**: Chrome, Edge, Safari 등 모든 모던 웹 브라우저에서 '안전하지 않음' 경고 없이 안전한 자물쇠(🔒) 아이콘과 함께 작동하며, 브라우저 마이크 음성 인식(STT) 등의 Web API도 완벽하게 지원됩니다.
-- **자동 갱신**: Certbot systemd 타이머(`certbot.timer`)가 백그라운드에서 만료 전 자동 갱신을 수행합니다.
+- **브라우저 호환성**: Chrome, Edge, Safari 등 모든 모던 웹 브라우저에서 '안전하지 않음' 경고 없이 안전한 자물쇠(🔒) 아이콘과 함께 작동하며, 브라우저 마이크 음성 인식(STT) 등의 Web API도 완벽하게 지원되었습니다.
+- **자동 갱신**: Certbot systemd 타이머(`certbot.timer`)가 백그라운드에서 만료 전 자동 갱신을 수행하도록 구성되었습니다.
 
 ### 3. GCP Secret Manager 안전 연동
 - **Secret 리소스**: `projects/94943462326/secrets/GEMINI_API_KEY`
@@ -136,10 +253,11 @@ Jupyter Notebook([compute_engine_example.ipynb](compute_engine_example.ipynb)) �
 - **주입 방식**: VM 부팅 시 `startup-script.sh`에서 gcloud CLI를 통해 Secret Manager의 최신 비밀값을 획득하여 서비스 구동 환경으로 자동 주입합니다.
 
 ### 4. 배포 자동화 도구 및 상세 로그
-- **`deploy_to_compute_engine.py`**: 코드 자동 패키징(Base64 tarball), startup-script 생성, VM 프로비저닝, 헬스체크 및 실시간 스트리밍 테스트를 수행하는 원클릭 배포 스크립트.
-- **`setup_https.sh`**: Nginx 리버스 프록시, Let's Encrypt SSL 연동, 포트 443/3000 HTTPS 및 자동 리다이렉트를 구성하는 스크립트.
-- **`deployment.log`**: 방화벽 확인, IAM 권한 부여, VM 생성, IP 할당, 헬스체크 응답, HTTPS SSL 인증서 발급 등 배포 전 과정의 상세 실행 로그가 타임스탬프와 함께 완벽히 기록된 파일.
-- **`startup-script.sh`**: 인스턴스 최초 부팅 시 Node.js 20 설치, 코드 압축 해제, Secret Manager 키 다운로드, systemd 데몬 등록을 수행하는 초기화 스크립트.
+- **`compute_engine/deploy_to_compute_engine.py`**: 코드 자동 패키징(Base64 tarball), startup-script 생성, VM 프로비저닝, 헬스체크 및 실시간 스트리밍 테스트를 수행하는 원클릭 배포 스크립트.
+- **`compute_engine/setup_https.sh`**: Nginx 리버스 프록시, Let's Encrypt SSL 연동, 포트 443/3000 HTTPS 및 자동 리다이렉트를 구성하는 스크립트.
+- **`compute_engine/deployment.log`**: 방화벽 확인, IAM 권한 부여, VM 생성, IP 할당, 헬스체크 응답, HTTPS SSL 인증서 발급 등 배포 전 과정의 상세 실행 로그가 타임스탬프와 함께 완벽히 기록된 파일.
+- **`compute_engine/startup-script.sh`**: 인스턴스 최초 부팅 시 Node.js 20 설치, 코드 압축 해제, Secret Manager 키 다운로드, systemd 데몬 등록을 수행하는 초기화 스크립트.
+
 
 ### 5. Compute Engine 인스턴스 관리 안내 (비용 절약)
 사용하지 않을 때는 인스턴스를 중지하여 불필요한 컴퓨팅 비용 청구를 방지할 수 있습니다:

@@ -24,7 +24,9 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-LOG_FILE = "deployment.log"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_FILE = os.path.join(BASE_DIR, "deployment.log")
+STARTUP_SCRIPT_PATH = os.path.join(BASE_DIR, "startup-script.sh")
 PROJECT_ID = "iceu-songpa03"
 PROJECT_NUMBER = "94943462326"
 ZONE = "us-central1-a"
@@ -117,9 +119,12 @@ def main():
     tar_stream = io.BytesIO()
     with tarfile.open(fileobj=tar_stream, mode="w:gz") as tar:
         for item in ["package.json", "server.js", "public"]:
-            if os.path.exists(item):
-                tar.add(item)
-                log(f"  + 아카이브 추가: {item}")
+            item_path = os.path.join(BASE_DIR, item)
+            if os.path.exists(item_path):
+                tar.add(item_path, arcname=item)
+                log(f"  + 아카이브 추가: {item} ({item_path})")
+            else:
+                log(f"  - 경고: {item_path} 파일을 찾을 수 없습니다.", level="WARN")
     
     tar_bytes = tar_stream.getvalue()
     tar_b64 = base64.b64encode(tar_bytes).decode("utf-8")
@@ -204,9 +209,9 @@ echo "=== [$(date)] 챗봇 VM 초기 구성 완료! 서비스 실행 상태 ==="
 systemctl status chatbot.service --no-pager
 """
 
-    with open("startup-script.sh", "w", encoding="utf-8", newline="\n") as f:
+    with open(STARTUP_SCRIPT_PATH, "w", encoding="utf-8", newline="\n") as f:
         f.write(startup_script_content)
-    log("startup-script.sh 저장 완료.")
+    log(f"startup-script.sh 저장 완료 ({STARTUP_SCRIPT_PATH}).")
 
     # ----------------------------------------------------
     # Step 6: Compute Engine 인스턴스 생성
@@ -226,7 +231,7 @@ systemctl status chatbot.service --no-pager
             f"--machine-type=e2-medium "
             f"--network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default "
             f"--tags=chatbot-server,http-server "
-            f"--metadata-from-file=startup-script=startup-script.sh "
+            f'--metadata-from-file=startup-script="{STARTUP_SCRIPT_PATH}" '
             f"--service-account={sa_email} "
             f"--scopes=https://www.googleapis.com/auth/cloud-platform "
             f"--create-disk=auto-delete=yes,boot=yes,image=projects/debian-cloud/global/images/debian-12-bookworm-v20260908,size=10,type=pd-balanced "
